@@ -11,10 +11,7 @@ interactive map.
 <p align="center">
   <img src="assets/explore-india-thumbnail.png" alt="Explore India - A living atlas of incredible places" width="100%" />
 </p>
-## 🎬 Explore India — Demo Video
-
-[▶️ Watch the Explore India Demo](https://github.com/gopinathchinnaraj/explore-india/blob/main/assets/explore-india-demo.mp4)v
-<p align="center">
+<p>
   <b>Discover places • Explore photos and reviews • Watch travel videos • Find nearby attractions</b>
 </p>
 
