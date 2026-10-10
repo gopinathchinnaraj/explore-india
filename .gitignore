@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# NEVER commit local secrets
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -39,3 +44,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# MapLibre worker, copied from node_modules on postinstall
+/public/maplibre/
+
+# Wikipedia responses cached by prisma/seed-india.ts
+/prisma/data/.wiki-cache.json

@@ -1,0 +1,382 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Geographic hierarchy ────────────────────────────────────────────────────
+
+model Country {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  code         String        @unique // ISO 3166-1 alpha-2
+  slug         String        @unique
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  states       State[]
+  destinations Destination[]
+}
+
+model State {
+  id           Int           @id @default(autoincrement())
+  name         String
+  slug         String        @unique
+  countryId    Int
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  country      Country       @relation(fields: [countryId], references: [id])
+  districts    District[]
+  destinations Destination[]
+
+  @@unique([name, countryId])
+}
+
+model District {
+  id           Int           @id @default(autoincrement())
+  name         String
+  slug         String        @unique
+  stateId      Int
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  state        State         @relation(fields: [stateId], references: [id])
+  destinations Destination[]
+
+  @@unique([name, stateId])
+}
+
+// ─── Categories (shared by Destinations and Spots) ───────────────────────────
+
+model Category {
+  id                    Int                   @id @default(autoincrement())
+  name                  String                @unique
+  slug                  String                @unique
+  icon                  String? // Lucide icon name or emoji
+  description           String?
+  createdAt             DateTime              @default(now())
+  destinationCategories DestinationCategory[]
+  spotCategories        SpotCategory[]
+}
+
+// ─── Destinations (broad travel areas: Hampi, Coorg, Gokarna …) ──────────────
+
+model Destination {
+  id            Int      @id @default(autoincrement())
+  name          String
+  slug          String   @unique
+  description   String?  @db.Text
+  countryId     Int
+  stateId       Int
+  districtId    Int?
+  latitude      Float
+  longitude     Float
+  address       String?
+  rating        Float?
+  reviewCount   Int?
+  coverImageUrl String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  country              Country               @relation(fields: [countryId], references: [id])
+  state                State                 @relation(fields: [stateId], references: [id])
+  district             District?             @relation(fields: [districtId], references: [id])
+  categories           DestinationCategory[]
+  images               DestinationImage[]
+  externalPlaces       ExternalPlace[]
+  reviews              DestinationReview[]
+  videos               DestinationVideo[]
+  facts                DestinationFact[]
+  spots                Spot[]
+
+  @@index([latitude, longitude])
+  @@index([stateId])
+  @@index([isActive])
+}
+
+model DestinationCategory {
+  destinationId Int
+  categoryId    Int
+  destination   Destination @relation(fields: [destinationId], references: [id])
+  category      Category    @relation(fields: [categoryId], references: [id])
+
+  @@id([destinationId, categoryId])
+}
+
+model DestinationImage {
+  id            Int         @id @default(autoincrement())
+  destinationId Int
+  url           String
+  alt           String?
+  source        String?
+  isPrimary     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  destination   Destination @relation(fields: [destinationId], references: [id])
+}
+
+// ExternalPlace links a Destination OR Spot to a provider ID (Google Maps etc.)
+model ExternalPlace {
+  id              Int          @id @default(autoincrement())
+  destinationId   Int?
+  spotId          Int?
+  provider        String // "google_maps", "tripadvisor", etc.
+  externalPlaceId String?
+  externalDataId  String?
+  externalCid     String?
+  externalUrl     String?
+  rawName         String?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime     @default(now())
+  destination     Destination? @relation(fields: [destinationId], references: [id])
+  spot            Spot?        @relation(fields: [spotId], references: [id])
+
+  @@unique([destinationId, provider])
+  @@unique([spotId, provider])
+  @@index([provider, externalPlaceId])
+  @@index([provider, externalDataId])
+}
+
+model DestinationReview {
+  id               Int         @id @default(autoincrement())
+  destinationId    Int
+  source           String // "google_maps", "tripadvisor", etc.
+  externalReviewId String?
+  authorName       String?
+  authorAvatarUrl  String?
+  rating           Float?
+  reviewText       String?     @db.Text
+  publishedAt      DateTime?
+  reviewUrl        String?
+  fetchedAt        DateTime    @default(now())
+  destination      Destination @relation(fields: [destinationId], references: [id])
+
+  @@index([destinationId])
+  @@index([fetchedAt])
+}
+
+model DestinationVideo {
+  id              Int         @id @default(autoincrement())
+  destinationId   Int
+  provider        String      @default("youtube")
+  videoId         String
+  title           String
+  description     String?     @db.Text
+  channelName     String?
+  channelId       String?
+  thumbnailUrl    String?
+  durationSeconds Int?
+  viewCount       BigInt?
+  publishedAt     DateTime?
+  videoUrl        String
+  fetchedAt       DateTime    @default(now())
+  destination     Destination @relation(fields: [destinationId], references: [id])
+
+  @@unique([destinationId, provider, videoId])
+  @@index([destinationId])
+  @@index([fetchedAt])
+}
+
+model DestinationFact {
+  id            Int         @id @default(autoincrement())
+  destinationId Int
+  factType      String // "best_time", "tips", "things_to_do", "ai_summary", etc.
+  title         String?
+  content       String      @db.Text
+  source        String?
+  sourceUrl     String?
+  fetchedAt     DateTime    @default(now())
+  destination   Destination @relation(fields: [destinationId], references: [id])
+
+  @@index([destinationId, factType])
+}
+
+// ─── Spots (individual tourism attractions: Virupaksha Temple, Jog Falls …) ──
+
+model Spot {
+  id              Int      @id @default(autoincrement())
+  destinationId   Int
+  name            String
+  slug            String   @unique
+  description     String?  @db.Text
+  latitude        Float
+  longitude       Float
+  address         String?
+  rating          Float?
+  reviewCount     Int?
+  coverImageUrl   String?
+  /// GOOGLE_MAPS | MANUAL | AI_DISCOVERED
+  discoverySource String   @default("MANUAL")
+  discoveryScore  Int?     // 0–100 internal ranking signal
+  isVerified      Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  /// DISCOVERED | PENDING_REVIEW | APPROVED | REJECTED | ARCHIVED
+  status          String   @default("APPROVED")
+  // Granular per-resource sync tracking
+  lastSyncedAt         DateTime?
+  lastDetailsSyncAt    DateTime?
+  lastReviewsSyncAt    DateTime?
+  lastVideosSyncAt     DateTime?
+  lastPhotosSyncAt     DateTime?
+  lastNearbySyncAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  destination     Destination    @relation(fields: [destinationId], references: [id])
+  categories      SpotCategory[]
+  images          SpotImage[]
+  externalPlaces  ExternalPlace[]
+  reviews         SpotReview[]
+  videos          SpotVideo[]
+  facts           SpotFact[]
+  nearbyFrom      SpotNearby[]   @relation("SpotNearbyFrom")
+  nearbyTo        SpotNearby[]   @relation("SpotNearbyTo")
+
+  @@index([destinationId])
+  @@index([latitude, longitude])
+  @@index([isActive])
+  @@index([discoveryScore])
+  @@index([status])
+}
+
+model SpotCategory {
+  spotId     Int
+  categoryId Int
+  spot       Spot     @relation(fields: [spotId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@id([spotId, categoryId])
+}
+
+model SpotImage {
+  id           Int      @id @default(autoincrement())
+  spotId       Int
+  provider     String?
+  imageUrl     String
+  thumbnailUrl String?
+  caption      String?
+  sourceUrl    String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  spot         Spot     @relation(fields: [spotId], references: [id])
+
+  @@index([spotId])
+}
+
+model SpotReview {
+  id               Int       @id @default(autoincrement())
+  spotId           Int
+  source           String    @default("google_maps")
+  externalReviewId String?
+  authorName       String?
+  authorAvatarUrl  String?
+  rating           Float?
+  reviewText       String?   @db.Text
+  publishedAt      DateTime?
+  reviewUrl        String?
+  fetchedAt        DateTime  @default(now())
+  spot             Spot      @relation(fields: [spotId], references: [id])
+
+  @@unique([spotId, source, externalReviewId])
+  @@index([spotId])
+  @@index([spotId, publishedAt])
+  @@index([spotId, rating])
+}
+
+model SpotVideo {
+  id              Int      @id @default(autoincrement())
+  spotId          Int
+  provider        String   @default("youtube")
+  videoId         String
+  title           String
+  description     String?  @db.Text
+  channelName     String?
+  channelId       String?
+  thumbnailUrl    String?
+  durationSeconds Int?
+  viewCount       BigInt?
+  publishedAt     DateTime?
+  videoUrl        String
+  /// TRAVEL_GUIDE | DOCUMENTARY | HISTORY | VLOG | WALKING_TOUR | SHORT | OTHER
+  contentType     String   @default("OTHER")
+  relevanceScore  Int?     // 0–100 internal ranking signal
+  fetchedAt       DateTime @default(now())
+  spot            Spot     @relation(fields: [spotId], references: [id])
+
+  @@unique([spotId, provider, videoId])
+  @@index([spotId])
+  @@index([spotId, relevanceScore])
+}
+
+model SpotFact {
+  id         Int      @id @default(autoincrement())
+  spotId     Int
+  factType   String // "best_time", "tips", "history", "ai_summary", etc.
+  title      String?
+  content    String   @db.Text
+  source     String?
+  sourceUrl  String?
+  fetchedAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  spot       Spot     @relation(fields: [spotId], references: [id])
+
+  @@index([spotId, factType])
+}
+
+model SpotNearby {
+  id               Int    @id @default(autoincrement())
+  spotId           Int
+  nearbySpotId     Int
+  distanceMeters   Float
+  /// WITHIN_DESTINATION | SAME_CATEGORY | RECOMMENDED
+  relationshipType String @default("WITHIN_DESTINATION")
+  spot             Spot   @relation("SpotNearbyFrom", fields: [spotId], references: [id])
+  nearbySpot       Spot   @relation("SpotNearbyTo", fields: [nearbySpotId], references: [id])
+
+  @@unique([spotId, nearbySpotId])
+  @@index([spotId])
+}
+
+// ─── API Cache & Sync Jobs ────────────────────────────────────────────────────
+
+model ApiRawData {
+  id           Int      @id @default(autoincrement())
+  provider     String // "serpapi"
+  engine       String // "google_maps" | "google_maps_reviews" | "youtube" | "google"
+  externalId   String?  // place_id / data_id when applicable
+  requestHash  String   @unique // MD5/SHA of query params for cache lookup
+  responseJson Json
+  fetchedAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([engine, externalId])
+  @@index([expiresAt])
+}
+
+model ApiSyncJob {
+  id             Int       @id @default(autoincrement())
+  engine         String
+  /// "destination" | "spot" | "discovery"
+  scopeType      String
+  scopeId        Int?
+  scopeName      String?
+  /// PENDING | RUNNING | COMPLETED | FAILED
+  status         String    @default("PENDING")
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  itemsProcessed Int       @default(0)
+  itemsCreated   Int       @default(0)
+  itemsUpdated   Int       @default(0)
+  error          String?
+  createdAt      DateTime  @default(now())
+
+  @@index([status])
+  @@index([scopeType, scopeId])
+}
