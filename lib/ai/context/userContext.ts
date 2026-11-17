@@ -18,7 +18,7 @@ export interface UserContext {
   categories?: string[];
   destination?: string;
   spot?: string;
-  requiresLiveData: boolean; // true if question needs SerpApi fresh data
+  requiresLiveData: boolean; // true if the question asks for live info (today, weather) the database cannot answer
 }
 
 const DAYS_PATTERNS = [

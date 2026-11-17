@@ -257,7 +257,8 @@ export async function fetchPlaceReviews(
   options: {
     hl?: string;
     limit?: number;
-    sortBy?: "qualityScore" | "newestFirst" | "highestRating" | "lowestRating";
+    // SerpApi values (verified): "highestRating"/"lowestRating" are silently ignored
+    sortBy?: "qualityScore" | "newestFirst" | "ratingHigh" | "ratingLow";
   } = {}
 ): Promise<{
   reviews: NormalizedReview[];

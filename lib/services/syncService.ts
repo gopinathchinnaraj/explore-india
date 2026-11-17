@@ -14,7 +14,7 @@ import { SerpApiError } from "@/lib/serpapi/client";
 import { fetchPlaceDetails } from "@/lib/serpapi/maps";
 import { sizedImageUrl } from "@/lib/media/image";
 import { syncSpotPhotos } from "./spotPhotoService";
-import { syncSpotReviews } from "./spotReviewService";
+import { syncSpotReviewsBestWorst } from "./spotReviewService";
 import { syncSpotVideos } from "./spotVideoService";
 import { computeNearbyForSpots } from "./spotService";
 
@@ -220,7 +220,10 @@ async function runResource(spotId: number, resource: SyncResource): Promise<Reso
       return { success: true, message: `${photos.length} photos stored` };
     }
     case "reviews": {
-      const reviews = await syncSpotReviews(spotId, dataId);
+      // Without a Google Maps data_id nothing is fetched, so don't stamp the spot as synced
+      // (that would hide it from every later "missing reviews" run).
+      if (!dataId) return { success: false, skipped: true, error: "No Google Maps link for this spot" };
+      const reviews = await syncSpotReviewsBestWorst(spotId, dataId);
       await stamp(spotId, resource);
       return { success: true, message: `${reviews.length} reviews stored` };
     }

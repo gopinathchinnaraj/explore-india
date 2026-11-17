@@ -128,7 +128,14 @@ export async function getSpotById(id: number): Promise<Spot | null> {
  */
 export async function searchSpots(
   query: string,
-  options: { destinationId?: number; categorySlug?: string; limit?: number } = {}
+  options: {
+    destinationId?: number;
+    stateId?: number;
+    /** Loose area name ("Hampi"): matches the spot's destination name, its own name or its address */
+    area?: string;
+    categorySlug?: string;
+    limit?: number;
+  } = {}
 ): Promise<SpotSummary[]> {
   const where: Record<string, unknown> = {
     isActive: true,
@@ -141,6 +148,19 @@ export async function searchSpots(
   };
 
   if (options.destinationId) where.destinationId = options.destinationId;
+  else if (options.stateId) where.destination = { stateId: options.stateId };
+
+  if (options.area) {
+    where.AND = [
+      {
+        OR: [
+          { destination: { name: { contains: options.area, mode: "insensitive" } } },
+          { name: { contains: options.area, mode: "insensitive" } },
+          { address: { contains: options.area, mode: "insensitive" } },
+        ],
+      },
+    ];
+  }
 
   if (options.categorySlug) {
     where.categories = {
