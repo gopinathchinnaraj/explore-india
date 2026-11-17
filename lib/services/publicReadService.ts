@@ -5,7 +5,7 @@
 
 import prisma from "@/lib/db/prisma";
 import { sizedImageUrl } from "@/lib/media/image";
-import { classifyVideoContentType } from "./spotVideoService";
+import { classifyVideoContentType } from "@/lib/media/videoContentType";
 import type { MapSpot, ReviewSortOrder } from "@/types/spot";
 
 export type { MapSpot };

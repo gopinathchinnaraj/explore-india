@@ -12,8 +12,7 @@ export type ToolName =
   | "get_spot_details"
   | "get_nearby_spots"
   | "get_reviews"
-  | "get_videos"
-  | "search_fresh_information";
+  | "get_videos";
 
 export interface ToolDefinition {
   name: ToolName;
@@ -42,12 +41,17 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "search_spots",
     description:
-      "Search for individual tourism spots inside a destination. Example: temples in Hampi, waterfalls near Coorg.",
+      "Search the stored tourism spots by area, category and/or keywords. Examples: temples in Hampi, beaches in Karnataka, forts anywhere in India.",
     parameters: {
       destination: {
         type: "string",
-        description: "Destination name or slug (e.g. 'hampi')",
-        required: true,
+        description: "Area to search: a state (e.g. 'Karnataka', 'Goa') or a destination (e.g. 'Hampi'). Omit to search all of India.",
+        required: false,
+      },
+      query: {
+        type: "string",
+        description: "Optional keywords matched against spot names and addresses (e.g. 'fort', 'Taj Mahal')",
+        required: false,
       },
       category: {
         type: "string",
@@ -104,14 +108,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       limit: { type: "number", description: "Max videos", required: false, min: 1, max: 10 },
     },
   },
-  {
-    name: "search_fresh_information",
-    description:
-      "Search Google for current/real-time information about a place. Use when the user asks about opening hours, current conditions, or recent news. This calls an external search API.",
-    parameters: {
-      query: { type: "string", description: "Search query", required: true },
-    },
-  },
 ];
 
 // OpenAI function-calling format for TOOL_DEFINITIONS
@@ -158,7 +154,6 @@ export function getOpenAITools(): Array<{
 export const HARNESS_RULES = {
   MAX_TOOL_CALLS_PER_REQUEST: 5,
   MAX_QUERY_LENGTH: 500,
-  ALLOW_FRESH_SEARCH: true, // can disable to reduce SerpApi usage
   FORBIDDEN_FIELDS: ["api_key", "database_url", "password", "secret"],
 } as const;
 

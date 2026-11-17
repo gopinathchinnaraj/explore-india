@@ -13,7 +13,6 @@ import { getSpotsContext, serializeSpotsContext, type SpotContextItem } from "./
 import { getReviewContext, getDestinationReviewContext, serializeReviewContext } from "./reviewContext";
 import { getVideoContext, serializeVideoContext } from "./videoContext";
 import { getNearbyContext, serializeNearbyContext } from "./nearbyContext";
-import { googleSearch } from "@/lib/serpapi/search";
 
 export interface ContextPackage {
   userContext: UserContext;
@@ -22,7 +21,6 @@ export interface ContextPackage {
   reviewSummary: string;
   videoSummary: string;
   nearbySummary: string;
-  freshSearchSummary: string;
   sources: Array<{ type: string; name: string; url?: string }>;
   // Serialized prompt-ready string
   promptText: string;
@@ -35,7 +33,7 @@ export interface ContextPackage {
  * - Different intents get different context
  * - We filter, rank, and compress before sending to OpenAI
  * - We NEVER send the entire database
- * - We NEVER send SerpApi raw JSON to the frontend
+ * - Database only: visitor questions never call SerpApi or other paid live APIs
  */
 export async function buildContextPackage(
   rawQuery: string,
@@ -88,25 +86,7 @@ export async function buildContextPackage(
     nearbySummary = serializeNearbyContext(nearby);
   }
 
-  // ── 6. Fresh External Context (SerpApi — only when live data is needed) ─────
-  let freshSearchSummary = "";
-  if (userContext.requiresLiveData) {
-    try {
-      const query = destinationSlug
-        ? `${rawQuery} ${destinationSlug.replace(/-/g, " ")} Karnataka India`
-        : rawQuery;
-      const result = await googleSearch(query);
-      const snippets = result.results.slice(0, 3).map((r) => r.snippet).join("\n");
-      if (snippets) {
-        freshSearchSummary = snippets;
-        sources.push({ type: "live_search", name: "Google Search", url: undefined });
-      }
-    } catch (err) {
-      console.warn("[ContextBuilder] Live search failed:", err);
-    }
-  }
-
-  // ── 7. Build prompt text ────────────────────────────────────────────────────
+  // ── 6. Build prompt text ────────────────────────────────────────────────────
   const promptText = assemblePromptText({
     userContext,
     destination,
@@ -114,7 +94,6 @@ export async function buildContextPackage(
     reviewSummary,
     videoSummary,
     nearbySummary,
-    freshSearchSummary,
   });
 
   return {
@@ -124,7 +103,6 @@ export async function buildContextPackage(
     reviewSummary,
     videoSummary,
     nearbySummary,
-    freshSearchSummary,
     sources,
     promptText,
   };
@@ -154,7 +132,6 @@ function assemblePromptText(data: {
   reviewSummary: string;
   videoSummary: string;
   nearbySummary: string;
-  freshSearchSummary: string;
 }): string {
   const parts: string[] = [];
 
@@ -183,9 +160,11 @@ function assemblePromptText(data: {
     parts.push(data.nearbySummary);
   }
 
-  if (data.freshSearchSummary) {
-    parts.push("\n=== CURRENT SEARCH INFO ===");
-    parts.push(data.freshSearchSummary);
+  if (data.userContext.requiresLiveData) {
+    parts.push(
+      "\n=== LIVE INFORMATION ===\nNot available. You have no live data (today's opening status, weather, current conditions or news). " +
+        "Say so plainly, answer from the information above, and suggest checking the place's official site or Google Maps for today's details."
+    );
   }
 
   if (data.userContext.days) {

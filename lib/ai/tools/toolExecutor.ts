@@ -6,9 +6,9 @@
 import { validateToolArgs, HARNESS_RULES, type ToolName } from "./toolDefinitions";
 import { getDestinations, searchDestinations } from "@/lib/services/destinationService";
 import { searchSpots, getSpotBySlug, getNearbySpots } from "@/lib/services/spotService";
-import { getSpotReviews } from "@/lib/services/spotReviewService";
-import { getSpotVideos } from "@/lib/services/spotVideoService";
-import { googleSearch } from "@/lib/serpapi/search";
+// Database-only readers: visitors' questions must never spend SerpApi credits.
+// Fresh data reaches the database only through the admin sync pipeline.
+import { getPublicSpotReviews, getPublicSpotVideos } from "@/lib/services/publicReadService";
 import prisma from "@/lib/db/prisma";
 
 export interface ToolCallResult {
@@ -74,9 +74,6 @@ export class ToolExecutor {
       case "get_videos":
         return this.getVideos(args);
 
-      case "search_fresh_information":
-        return this.searchFreshInfo(args);
-
       default:
         throw new Error(`Unknown tool: ${toolName}`);
     }
@@ -98,34 +95,57 @@ export class ToolExecutor {
   }
 
   private async searchSpots(args: Record<string, unknown>) {
-    const destinationName = String(args.destination);
+    const place = typeof args.destination === "string" ? args.destination.trim() : "";
+    const query = typeof args.query === "string" ? args.query.trim() : "";
     const category = typeof args.category === "string" ? args.category : undefined;
     const limit = typeof args.limit === "number" ? args.limit : 10;
 
-    // Find destination by name or slug
-    const destination = await prisma.destination.findFirst({
-      where: {
-        isActive: true,
-        OR: [
-          { name: { contains: destinationName, mode: "insensitive" } },
-          { slug: { contains: destinationName.toLowerCase().replace(/\s+/g, "-"), mode: "insensitive" } },
-        ],
-      },
-      select: { id: true, name: true },
-    });
+    const categorySlug = category ? category.toLowerCase().replace(/\s+/g, "-") : undefined;
 
-    if (!destination) {
-      return { message: `No destination found matching "${destinationName}"`, spots: [] };
+    // Resolve the area. An exact state ("Karnataka", "Goa") searches the whole state.
+    // Anything else ("Hampi", "Agra") is a loose area match on destination name, spot
+    // name and address — spots of one town are often spread over several destinations.
+    // A partial state name ("Tamil") is the last resort.
+    let scopeName: string | null = null;
+    let spots: Awaited<ReturnType<typeof searchSpots>> = [];
+    if (place) {
+      const exactState = await prisma.state.findFirst({
+        where: {
+          isActive: true,
+          OR: [{ name: { equals: place, mode: "insensitive" } }, { slug: place.toLowerCase().replace(/\s+/g, "-") }],
+        },
+        select: { id: true, name: true },
+      });
+      if (exactState) {
+        scopeName = exactState.name;
+        spots = await searchSpots(query, { stateId: exactState.id, categorySlug, limit });
+      } else {
+        scopeName = place;
+        spots = await searchSpots(query, { area: place, categorySlug, limit });
+        if (spots.length === 0) {
+          const partialState = await prisma.state.findFirst({
+            where: { isActive: true, name: { contains: place, mode: "insensitive" } },
+            select: { id: true, name: true },
+          });
+          if (partialState) {
+            scopeName = partialState.name;
+            spots = await searchSpots(query, { stateId: partialState.id, categorySlug, limit });
+          }
+        }
+      }
+    } else {
+      spots = await searchSpots(query, { categorySlug, limit });
     }
 
-    const spots = await searchSpots("", {
-      destinationId: destination.id,
-      categorySlug: category ? category.toLowerCase().replace(/\s+/g, "-") : undefined,
-      limit,
-    });
+    if (spots.length === 0) {
+      return {
+        message: `No stored spots matched${scopeName ? ` in ${scopeName}` : ""}${query ? ` for "${query}"` : ""}${category ? ` in category ${category}` : ""}.`,
+        spots: [],
+      };
+    }
 
     return {
-      destination: destination.name,
+      destination: scopeName,
       spots: spots.map((s) => ({
         id: s.id,
         name: s.name,
@@ -179,7 +199,7 @@ export class ToolExecutor {
     const sort = (args.sort as "relevant" | "newest" | "highest" | "lowest") || "relevant";
     const limit = typeof args.limit === "number" ? args.limit : 8;
 
-    const result = await getSpotReviews(spotId, { sort, limit });
+    const result = await getPublicSpotReviews(spotId, sort, limit);
     // Return only what the AI needs — not raw DB records
     return result.reviews.map((r) => ({
       authorName: r.authorName,
@@ -193,14 +213,7 @@ export class ToolExecutor {
     const spotId = Number(args.spot_id);
     const limit = typeof args.limit === "number" ? args.limit : 6;
 
-    const spot = await prisma.spot.findUnique({
-      where: { id: spotId },
-      select: { name: true, destination: { select: { name: true } } },
-    });
-
-    if (!spot) return { error: "Spot not found" };
-
-    const result = await getSpotVideos(spotId, spot.name, spot.destination.name, { limit });
+    const result = await getPublicSpotVideos(spotId, limit);
     return result.videos.map((v) => ({
       title: v.title,
       channel: v.channelName,
@@ -210,29 +223,4 @@ export class ToolExecutor {
     }));
   }
 
-  private async searchFreshInfo(args: Record<string, unknown>) {
-    if (!HARNESS_RULES.ALLOW_FRESH_SEARCH) {
-      return { message: "Live search is currently disabled" };
-    }
-
-    const query = String(args.query);
-
-    // Rule: maximum query length
-    if (query.length > HARNESS_RULES.MAX_QUERY_LENGTH) {
-      throw new Error(`Query too long (max ${HARNESS_RULES.MAX_QUERY_LENGTH} chars)`);
-    }
-
-    console.log(`[ToolExecutor] Fresh search: "${query}"`);
-    const result = await googleSearch(query);
-
-    return {
-      query,
-      answerBox: result.answerBox?.snippet || null,
-      results: result.results.slice(0, 5).map((r) => ({
-        title: r.title,
-        snippet: r.snippet,
-        url: r.url,
-      })),
-    };
-  }
 }
