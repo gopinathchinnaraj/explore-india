@@ -83,7 +83,10 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
-const GENERIC = new Set(["the", "of", "at", "and", "in", "near", "sri", "shri", "india", "view", "point"]);
+const GENERIC = new Set([
+  "the", "of", "at", "and", "in", "near", "sri", "shri", "shree", "sree", "ancient", "historical", "place",
+  "india", "karnataka", "view", "point",
+]);
 function tokens(s: string): string[] {
   return s
     .normalize("NFKD")
@@ -97,14 +100,51 @@ function tokens(s: string): string[] {
 // unless the spot's own name says so
 const OTHER_KINDS = /^(division|district|taluk|taluka|tehsil|mandal|constituency|subdivision|railway|station|junction|airport|university|college|school|hospital|municipality|corporation|cantonment|block|village|town|city)$/;
 
+// What kind of place a name describes. An article naming a different kind ("Fort Church"
+// for "Bengaluru Fort", "Kollur Mookambika Temple" for "Kolluru Ghat View point") is a
+// different place.
+const KIND_ALIASES: Record<string, string> = {
+  fort: "fort", forts: "fort", kote: "fort", temple: "temple", temples: "temple", devasthana: "temple", mandir: "temple",
+  church: "church", cathedral: "church", basilica: "church", mosque: "mosque", masjid: "mosque", dargah: "dargah", tomb: "tomb",
+  palace: "palace", mahal: "palace", lake: "lake", tank: "lake", falls: "falls", waterfalls: "falls", waterfall: "falls",
+  beach: "beach", dam: "dam", reservoir: "dam", park: "park", garden: "park", gardens: "park", sanctuary: "sanctuary",
+  market: "market", mall: "mall", museum: "museum", cave: "cave", caves: "cave", island: "island", ghat: "ghat",
+  viewpoint: "viewpoint", aquarium: "aquarium", zoo: "zoo", station: "station", bridge: "bridge", stadium: "stadium",
+};
+function kinds(t: string[]): Set<string> {
+  return new Set(t.map((x) => KIND_ALIASES[x]).filter(Boolean));
+}
+
 /** Share of the spot's name words found in the article title (prefix match handles spelling variants) */
-function nameScore(spotName: string, title: string): number {
+export function nameScore(spotName: string, title: string): number {
   const a = tokens(spotName);
   const b = tokens(title);
   if (!a.length || !b.length) return 0;
   if (b.some((t) => OTHER_KINDS.test(t) && !a.includes(t))) return 0;
-  const hit = a.filter((t) => b.some((u) => u === t || (t.length >= 5 && u.length >= 5 && (u.startsWith(t.slice(0, 5)) || t.startsWith(u.slice(0, 5))))));
+  const ka = kinds(a);
+  const kb = kinds(b);
+  // The article is about a different kind of place
+  if ([...kb].some((k) => !ka.has(k))) return 0;
+  // The spot names a kind the title lacks, and the title adds other words ("Mysore market" → "Jayanagar, Mysore")
+  const extraWords = b.filter((t) => !a.some((u) => sameWord(t, u)));
+  if (ka.size && !kb.size && extraWords.length > 0) return 0;
+  const hit = a.filter((t) => b.some((u) => sameWord(t, u)));
+  // The title is a bare place name that covers only part of the spot's name: allowed when the
+  // missing words just say what kind of place it is ("Malpe Beach" → "Malpe"), not when they
+  // name something else ("DMart Udupi" → "Udupi"). Titles naming a kind ("Bengaluru Aquarium")
+  // are already checked above.
+  if (extraWords.length === 0 && kb.size === 0 && a.some((t) => !hit.includes(t) && !KIND_ALIASES[t])) return 0;
   return hit.length / a.length;
+}
+
+function sameWord(x: string, y: string): boolean {
+  return x === y || (x.length >= 5 && y.length >= 5 && x.slice(0, 5) === y.slice(0, 5));
+}
+
+/** Words in the title that are not in the spot's name ("Chennai" in "Street food of Chennai") */
+export function titleAddsWords(spotName: string, title: string): boolean {
+  const a = tokens(spotName);
+  return tokens(title).some((t) => !a.some((u) => sameWord(t, u)));
 }
 
 /** Skip maps, flags, logos, icons and diagrams: they are not photos of the place */
@@ -167,7 +207,10 @@ async function findArticle(spot: { name: string; latitude: number; longitude: nu
     const s = await summary(r.title);
     if (!s || s.type === "disambiguation") continue;
     const km = s.coordinates ? haversineKm(here, { lat: s.coordinates.lat, lng: s.coordinates.lon }) : null;
-    if ((km !== null && km <= MAX_KM) || (km === null && score === 1)) return { summary: s, km, score, via: "search" };
+    // Without coordinates only an exact name is trusted, with nothing extra in the title
+    if ((km !== null && km <= MAX_KM) || (km === null && score === 1 && !titleAddsWords(spot.name, r.title))) {
+      return { summary: s, km, score, via: "search" };
+    }
   }
   return null;
 }
@@ -330,9 +373,12 @@ async function main() {
   );
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+// Run only when executed directly (the matcher can be imported for testing)
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}
