@@ -50,3 +50,5 @@ next-env.d.ts
 
 # Wikipedia responses cached by prisma/seed-india.ts
 /prisma/data/.wiki-cache.json
+/prisma/data/.photo-backup-*.json
+/prisma/data/.reviews-backup-*.json

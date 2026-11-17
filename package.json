@@ -12,6 +12,8 @@
     "seed.serpapi.ts": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.serpapi.ts",
     "seed:india": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed-india.ts",
     "sync:spots": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/sync-destinations-to-spots.ts",
+    "backfill:photos": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/backfill-photos.ts",
+    "link:google": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" prisma/link-google-maps.ts",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
