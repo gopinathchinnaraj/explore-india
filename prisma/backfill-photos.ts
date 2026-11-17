@@ -129,16 +129,27 @@ export function nameScore(spotName: string, title: string): number {
   const extraWords = b.filter((t) => !a.some((u) => sameWord(t, u)));
   if (ka.size && !kb.size && extraWords.length > 0) return 0;
   const hit = a.filter((t) => b.some((u) => sameWord(t, u)));
-  // The title is a bare place name that covers only part of the spot's name: allowed when the
-  // missing words just say what kind of place it is ("Malpe Beach" → "Malpe"), not when they
-  // name something else ("DMart Udupi" → "Udupi"). Titles naming a kind ("Bengaluru Aquarium")
-  // are already checked above.
-  if (extraWords.length === 0 && kb.size === 0 && a.some((t) => !hit.includes(t) && !KIND_ALIASES[t])) return 0;
+  // Sharing only a kind word is not a match ("Virupaksha Temple" → "Jain Narayana Temple")
+  if (hit.every((t) => KIND_ALIASES[t])) return 0;
+  // A partial match whose title also adds its own words is a different place
+  // ("DMart Udupi" → "Udupi Sri Krishna Matha")
+  if (hit.length < a.length && extraWords.length > 0) return 0;
+  // The title is a bare place name that covers only part of the spot's name. Allowed only for
+  // natural features named after their village ("Malpe Beach" → "Malpe"), never for built
+  // places ("Bengaluru Fort" → "Bengaluru") or other names ("DMart Udupi" → "Udupi").
+  if (extraWords.length === 0 && kb.size === 0) {
+    const missing = a.filter((t) => !hit.includes(t));
+    if (missing.some((t) => !NATURAL_KINDS.has(KIND_ALIASES[t] ?? ""))) return 0;
+  }
   return hit.length / a.length;
 }
 
+const NATURAL_KINDS = new Set(["beach", "falls", "lake", "dam", "island", "cave", "ghat"]);
+
 function sameWord(x: string, y: string): boolean {
-  return x === y || (x.length >= 5 && y.length >= 5 && x.slice(0, 5) === y.slice(0, 5));
+  if (x === y || (x.length >= 5 && y.length >= 5 && x.slice(0, 5) === y.slice(0, 5))) return true;
+  // Same kind of place under another word ("Waterfalls" / "Falls", "Devasthana" / "Temple")
+  return !!KIND_ALIASES[x] && KIND_ALIASES[x] === KIND_ALIASES[y];
 }
 
 /** Words in the title that are not in the spot's name ("Chennai" in "Street food of Chennai") */
