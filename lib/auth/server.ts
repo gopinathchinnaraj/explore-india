@@ -9,6 +9,17 @@ export const auth = createNeonAuth({
   },
 });
 
+/** The signed-in visitor, or null. Never throws — auth outages just read as signed out. */
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  try {
+    const result = await auth.getSession();
+    return (result?.data?.user as AuthUser | undefined) ?? null;
+  } catch (error) {
+    console.error("Error retrieving session:", error);
+    return null;
+  }
+}
+
 /**
  * Server-side helper to fetch current session and verify admin authorization.
  * Returns { authenticated, isAdmin, user, session }.

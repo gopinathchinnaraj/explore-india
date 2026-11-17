@@ -2819,3 +2819,112 @@
     font-size: 10px;
   }
 }
+
+/* ─── Account (visitor auth) ──────────────────────────────────────────── */
+
+.gs-account {
+  position: relative;
+  flex-shrink: 0;
+}
+.gs-account-skel {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  flex-shrink: 0;
+}
+.gs-account-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: border-color 150ms;
+}
+.gs-account-btn:hover,
+.gs-account-btn.is-open {
+  border-color: var(--brand);
+}
+.gs-account-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  background: linear-gradient(135deg, var(--brand), #14b8a6);
+  color: #fff;
+  font: 700 12.5px var(--font);
+  letter-spacing: 0.02em;
+}
+.gs-account-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 240px;
+  padding: 6px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-3);
+  z-index: 1200;
+  animation: gs-pop 160ms ease;
+}
+.gs-account-info {
+  padding: 10px 10px 8px;
+  min-width: 0;
+}
+.gs-account-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gs-account-email {
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gs-account-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+.gs-account-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 13.5px var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+.gs-account-item:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.gs-account-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.gs-account-spin {
+  animation: auth-spin 0.9s linear infinite;
+}
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
