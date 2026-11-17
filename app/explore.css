@@ -2928,3 +2928,30 @@
     transform: rotate(360deg);
   }
 }
+
+/* Free YouTube search link (Videos tab) */
+.gs-yt-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--ink);
+  font: 600 13.5px var(--font);
+  text-decoration: none;
+  transition: border-color 150ms, background 150ms;
+}
+.gs-yt-btn > svg:first-child {
+  color: #dc2626;
+}
+.gs-yt-btn > svg:last-child {
+  color: var(--faint);
+}
+.gs-yt-btn:hover {
+  border-color: rgba(15, 23, 42, 0.24);
+  background: var(--surface-2);
+}

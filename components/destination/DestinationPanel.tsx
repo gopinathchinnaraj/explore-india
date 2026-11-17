@@ -23,6 +23,7 @@ import type { Photo, PhotoCategory } from "@/types/photo";
 import type { MapSpot } from "@/types/spot";
 import SmartImage from "@/components/common/SmartImage";
 import { primaryCategory } from "@/lib/categories";
+import { youtubeSearchUrl } from "@/lib/media/youtube";
 
 interface NearbyDest extends DestinationSummary {
   distanceKm: number;
@@ -719,13 +720,14 @@ function VideosTab({
     return (
       <div className="error-state">
         <PlayCircle size={36} className="error-state-icon" />
-        <div className="error-state-title">Videos unavailable</div>
+        <div className="error-state-title">{error ? "Videos unavailable" : "No videos saved yet"}</div>
         <p className="error-state-text">
-          Travel videos for {destinationName} could not be loaded right now.
-          Check your SerpApi configuration.
+          {error
+            ? `Travel videos for ${destinationName} could not be loaded right now.`
+            : `No travel videos are saved for ${destinationName} yet. Watch some on YouTube instead.`}
         </p>
         <a
-          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(destinationName + " travel guide")}`}
+          href={youtubeSearchUrl(destinationName, "travel guide")}
           target="_blank"
           rel="noopener noreferrer"
           style={{

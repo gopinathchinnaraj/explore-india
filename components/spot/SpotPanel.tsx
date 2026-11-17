@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import SmartImage from "@/components/common/SmartImage";
 import { imageIdentity } from "@/lib/media/image";
+import { youtubeSearchUrl } from "@/lib/media/youtube";
 import { primaryCategory, categoryStyle } from "@/lib/categories";
 import type { MapSpot, SpotPhoto, SpotReview, SpotVideo, NearbySpot, ReviewSortOrder } from "@/types/spot";
 
@@ -125,6 +126,7 @@ export default function SpotPanel({ spot, onClose, onSelectSpot, onSelectDestina
   const cat = primaryCategory(spot.categories);
   // Many destinations were created as 1:1 copies of a spot; don't repeat the same name
   const sameAsDestination = spot.destination.name === spot.name;
+  const youtubeUrl = youtubeSearchUrl(spot.name, sameAsDestination ? null : spot.destination.name, spot.state);
   const gallery = useMemo(() => {
     const urls: Array<{ src: string; full: string }> = [];
     const seen = new Set<string>();
@@ -272,6 +274,18 @@ export default function SpotPanel({ spot, onClose, onSelectSpot, onSelectDestina
                     Open in Google Maps
                   </a>
                 </div>
+                <div className="gs-fact">
+                  <PlayCircle size={16} />
+                  <a
+                    className="gs-link-btn"
+                    style={{ margin: 0, textDecoration: "none" }}
+                    href={youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Watch on YouTube
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -376,9 +390,16 @@ export default function SpotPanel({ spot, onClose, onSelectSpot, onSelectDestina
             {videos === null ? (
               <div className="gs-skel" style={{ height: 90 }} />
             ) : videos.length === 0 ? (
-              <Empty icon={<PlayCircle size={26} />} text="No travel videos linked yet." />
+              <Empty icon={<PlayCircle size={26} />} text="No travel videos saved for this place yet." />
             ) : (
               <VideoList videos={videos} />
+            )}
+            {videos !== null && (
+              <a className="gs-yt-btn" href={youtubeUrl} target="_blank" rel="noopener noreferrer">
+                <PlayCircle size={16} />
+                {videos.length === 0 ? `Search YouTube for ${spot.name}` : "More videos on YouTube"}
+                <ExternalLink size={13} />
+              </a>
             )}
           </div>
         )}
