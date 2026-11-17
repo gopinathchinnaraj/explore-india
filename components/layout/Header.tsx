@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Compass, Search, Sparkles, X, MapPin, Star, Navigation, Dices, Route, Backpack } from "lucide-react";
 import SmartImage from "@/components/common/SmartImage";
+import AccountMenu from "@/components/layout/AccountMenu";
 import { CATEGORY_STYLES, primaryCategory, type CategoryStyle } from "@/lib/categories";
 import type { MapSpot } from "@/types/spot";
 import type { DestinationSummary } from "@/types/destination";
@@ -318,6 +319,7 @@ export default function Header({
           <Sparkles size={16} />
           <span className="label">Ask AI</span>
         </button>
+        <AccountMenu />
       </div>
     </header>
   );
